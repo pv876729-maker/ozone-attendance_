@@ -1,0 +1,13 @@
+{
+  "name": "ozone-attendance",
+  "version": "1.0.0",
+  "description": "Company attendance system: role-based auth, check-in/out, breaks, idle auto-checkout.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "bcryptjs": "^2.4.3"
+  }
+}

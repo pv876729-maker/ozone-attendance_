@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ozone Attendance</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  :root {
+    --bg:#EEF0EA; --surface:#FBFBF8; --ink:#1F2421; --ink-soft:#5B635D;
+    --accent:#1B6E77; --accent-dark:#124F56; --amber:#C98A2B; --absent:#A84A3F;
+    --line:#D7D9D0; --radius:3px;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; min-height:100vh; }
+  h1,h2,h3 { font-family:'Fraunces',Georgia,serif; font-weight:500; margin:0 0 .3em; }
+  .hidden { display:none !important; }
+
+  /* Login */
+  #loginScreen { min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .login-box { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:36px; width:300px; }
+  .login-box h2 { margin-bottom:6px; }
+  .login-sub { color:var(--ink-soft); font-size:13px; margin-bottom:20px; }
+  input, select, textarea { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:var(--radius); background:#fff; font-family:'Inter',sans-serif; font-size:15px; color:var(--ink); }
+  textarea { resize: vertical; }
+  .field { margin-bottom:14px; }
+  .field label { display:block; font-size:13px; color:var(--ink-soft); margin-bottom:5px; }
+  button { font-family:'Inter',sans-serif; font-size:14.5px; font-weight:500; padding:11px 18px; border-radius:var(--radius); border:1px solid transparent; cursor:pointer; }
+  .btn-primary { background:var(--accent); color:#fff; width:100%; }
+  .btn-primary:hover { background:var(--accent-dark); }
+  .btn-out { background:transparent; color:var(--ink); border-color:var(--ink); }
+  .btn-out:hover { background:var(--ink); color:#fff; }
+  .btn-amber { background:var(--amber); color:#fff; }
+  .login-err { margin-top:14px; font-size:13.5px; color:var(--absent); display:none; }
+  .login-hint { margin-top:18px; font-size:12px; color:var(--ink-soft); line-height:1.6; }
+
+  /* App shell */
+  #appScreen { display:none; }
+  .topbar { border-bottom:1px solid var(--line); padding:18px 24px; }
+  .topbar-inner { max-width:1000px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+  .brand { font-family:'Fraunces',Georgia,serif; font-size:19px; font-weight:600; }
+  .brand span { color:var(--accent); }
+  .who { display:flex; align-items:center; gap:14px; }
+  .who-name { font-size:14px; }
+  .who-role { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); background:#EDEDE8; padding:3px 8px; border-radius:10px; }
+  .logout-btn { background:none; border:1px solid var(--line); padding:7px 13px; font-size:13px; }
+
+  .wrap { max-width:1000px; margin:0 auto; padding:32px 24px 64px; }
+
+  .idle-banner { background:#F5E4E1; border:1px solid #E4BEB6; color:var(--absent); border-radius:var(--radius); padding:12px 16px; font-size:14px; margin-bottom:24px; display:none; }
+
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:26px; margin-bottom:24px; }
+
+  .status-line { display:flex; align-items:center; gap:10px; margin-bottom:18px; }
+  .status-dot { width:10px; height:10px; border-radius:50%; background:var(--ink-soft); }
+  .status-dot.working { background:var(--accent); }
+  .status-dot.break, .status-dot.lunch { background:var(--amber); }
+  .status-dot.auto_checked_out { background:var(--absent); }
+  .status-text { font-family:'IBM Plex Mono', monospace; font-size:14px; }
+
+  .btn-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+  .status-msg { margin-top:16px; padding:11px 14px; border-radius:var(--radius); font-size:13.5px; display:none; }
+  .status-msg.show { display:block; }
+  .status-msg.ok { background:#E4EEE7; color:var(--accent-dark); border:1px solid #BFD8C6; }
+  .status-msg.err { background:#F5E4E1; color:var(--absent); border:1px solid #E4BEB6; }
+
+  .stat-strip { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; margin-bottom:24px; }
+  .stat { background:var(--surface); padding:18px; }
+  .stat-num { font-family:'IBM Plex Mono', monospace; font-size:26px; }
+  .stat-label { font-size:12.5px; color:var(--ink-soft); margin-top:3px; }
+
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  thead th { text-align:left; font-weight:500; color:var(--ink-soft); font-size:12px; padding:0 8px 8px; border-bottom:1px solid var(--ink); }
+  tbody td { padding:11px 8px; border-bottom:1px solid var(--line); font-family:'IBM Plex Mono', monospace; font-size:13.5px; }
+  tbody td.name-cell { font-family:'Inter',sans-serif; font-size:14px; }
+  tbody tr:last-child td { border-bottom:none; }
+  .badge { display:inline-block; padding:3px 9px; border-radius:12px; font-family:'Inter',sans-serif; font-size:11.5px; font-weight:500; }
+  .badge-working { background:#E4EEE7; color:var(--accent-dark); }
+  .badge-break { background:#F6EBD9; color:#8A5E1B; }
+  .badge-off { background:#EDEDE8; color:var(--ink-soft); }
+  .badge-auto { background:#F5E4E1; color:var(--absent); }
+
+  .section-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px; }
+  .section-head h2 { font-size:17px; }
+  .empty-note { color:var(--ink-soft); font-size:13.5px; padding:20px 0; }
+
+  /* Tabs */
+  .tabs { display:flex; gap:6px; }
+  .tab-btn { background:transparent; border:1px solid transparent; color:var(--ink-soft); font-size:13.5px; font-weight:500; padding:7px 13px; border-radius:var(--radius); cursor:pointer; }
+  .tab-btn:hover { color:var(--ink); }
+  .tab-btn.active { background:var(--ink); color:#fff; }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+
+  .balance-strip { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; margin-bottom:24px; }
+  .balance-strip .stat { text-align:center; }
+
+  .leave-form-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  @media (max-width:640px) { .leave-form-row { grid-template-columns:1fr; } }
+
+  .badge-pending { background:#F6EBD9; color:#8A5E1B; }
+  .badge-approved { background:#E4EEE7; color:var(--accent-dark); }
+  .badge-rejected { background:#F5E4E1; color:var(--absent); }
+
+  .row-actions button { padding:6px 12px; font-size:12.5px; margin-right:6px; }
+  .subtabs { display:flex; gap:8px; margin-bottom:18px; }
+  .subtab-btn { background:transparent; border:1px solid var(--line); color:var(--ink-soft); font-size:13px; padding:6px 12px; border-radius:var(--radius); cursor:pointer; }
+  .subtab-btn.active { background:var(--ink); color:#fff; border-color:var(--ink); }
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginScreen">
+  <div class="login-box">
+    <h2>Ozone Attendance</h2>
+    <div class="login-sub">Sign in to continue</div>
+    <div class="field"><label>Email</label><input id="loginEmail" type="text" placeholder="you@ozone.co"></div>
+    <div class="field"><label>Password</label><input id="loginPassword" type="password" placeholder="••••••••"></div>
+    <button class="btn-primary" id="loginBtn">Log in</button>
+    <div class="login-err" id="loginErr"></div>
+    <div class="login-hint">
+      Demo logins — MD: md@ozone.co / md123 · Manager: manager@ozone.co / manager123 · Employee: asha@ozone.co / emp123
+    </div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="appScreen">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">Ozone<span>·</span>Attendance</div>
+      <div class="tabs" id="mainTabs">
+        <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+        <button class="tab-btn" data-tab="leave">Leave</button>
+        <button class="tab-btn hidden" id="managementTabBtn" data-tab="management">Management</button>
+      </div>
+      <div class="who">
+        <span class="who-name" id="whoName"></span>
+        <span class="who-role" id="whoRole"></span>
+        <button class="logout-btn" id="logoutBtn">Log out</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+
+  <!-- ===== Dashboard tab ===== -->
+  <section class="tab-panel active" id="tab-dashboard">
+    <div class="idle-banner" id="idleBanner">You were auto checked-out after 15 minutes of inactivity. Check in again to resume.</div>
+
+    <!-- Check-in panel -->
+    <div class="card">
+      <h2>Your day</h2>
+      <div class="status-line">
+        <div class="status-dot" id="statusDot"></div>
+        <div class="status-text" id="statusText">Checked out</div>
+      </div>
+
+      <div class="field">
+        <label>What are you working on right now?</label>
+        <textarea id="workNote" rows="2" placeholder="e.g. Reviewing PR #482, on a client call…"></textarea>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-primary" id="checkInBtn">Check In</button>
+        <button class="btn-out" id="checkOutBtn">Check Out</button>
+        <button class="btn-amber" id="breakBtn">Start Break</button>
+        <button class="btn-amber" id="lunchBtn">Start Lunch</button>
+        <button class="btn-out" id="endBreakBtn">End Break</button>
+        <button class="btn-out" id="saveNoteBtn">Update Note</button>
+      </div>
+
+      <div class="status-msg" id="statusMsg"></div>
+    </div>
+
+    <!-- Team status (manager/MD only) -->
+    <div id="teamSection" class="hidden">
+      <div class="stat-strip">
+        <div class="stat"><div class="stat-num" id="statWorking">—</div><div class="stat-label">Working now</div></div>
+        <div class="stat"><div class="stat-num" id="statBreak">—</div><div class="stat-label">On break / lunch</div></div>
+        <div class="stat"><div class="stat-num" id="statOff">—</div><div class="stat-label">Not checked in</div></div>
+      </div>
+
+      <div class="section-head"><h2 id="teamHeading">Team activity</h2></div>
+      <table id="teamTable">
+        <thead><tr><th>Name</th><th>Department</th><th>Status</th><th>Current activity</th><th>Check in</th></tr></thead>
+        <tbody id="teamBody"></tbody>
+      </table>
+      <div class="empty-note hidden" id="teamEmpty">No team members found.</div>
+    </div>
+  </section>
+
+  <!-- ===== Leave tab (everyone) ===== -->
+  <section class="tab-panel" id="tab-leave">
+    <div class="balance-strip">
+      <div class="stat"><div class="stat-num" id="balSick">—</div><div class="stat-label">Sick leave left</div></div>
+      <div class="stat"><div class="stat-num" id="balCasual">—</div><div class="stat-label">Casual leave left</div></div>
+      <div class="stat"><div class="stat-num" id="balEarned">—</div><div class="stat-label">Earned leave left</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Request leave</h2>
+      <div class="leave-form-row">
+        <div class="field">
+          <label>Type</label>
+          <select id="leaveType">
+            <option value="casual">Casual</option>
+            <option value="sick">Sick</option>
+            <option value="earned">Earned</option>
+          </select>
+        </div>
+        <div class="field"><label>Start date</label><input id="leaveStart" type="date"></div>
+        <div class="field"><label>End date</label><input id="leaveEnd" type="date"></div>
+      </div>
+      <div class="field"><label>Reason (optional)</label><textarea id="leaveReason" rows="2" placeholder="Brief reason for your manager"></textarea></div>
+      <button class="btn-primary" id="submitLeaveBtn">Submit request</button>
+      <div class="status-msg" id="leaveMsg"></div>
+    </div>
+
+    <div class="section-head"><h2>My requests</h2></div>
+    <table id="myLeaveTable">
+      <thead><tr><th>Type</th><th>Dates</th><th>Days</th><th>Reason</th><th>Status</th></tr></thead>
+      <tbody id="myLeaveBody"></tbody>
+    </table>
+    <div class="empty-note hidden" id="myLeaveEmpty">No leave requests yet.</div>
+  </section>
+
+  <!-- ===== Management tab (manager/MD) ===== -->
+  <section class="tab-panel" id="tab-management">
+    <div class="subtabs">
+      <button class="subtab-btn active" data-subtab="approvals">Leave Approvals</button>
+      <button class="subtab-btn" data-subtab="late">Late Logs</button>
+      <button class="subtab-btn" data-subtab="overtime">Overtime</button>
+    </div>
+
+    <div class="mgmt-subpanel" id="mgmt-approvals">
+      <table id="approvalsTable">
+        <thead><tr><th>Employee</th><th>Type</th><th>Dates</th><th>Days</th><th>Reason</th><th>Status</th><th></th></tr></thead>
+        <tbody id="approvalsBody"></tbody>
+      </table>
+      <div class="empty-note hidden" id="approvalsEmpty">No leave requests from your team.</div>
+    </div>
+
+    <div class="mgmt-subpanel hidden" id="mgmt-late">
+      <table id="lateTable">
+        <thead><tr><th>Employee</th><th>Date</th><th>Check in</th><th>Company start</th></tr></thead>
+        <tbody id="lateBody"></tbody>
+      </table>
+      <div class="empty-note hidden" id="lateEmpty">No late check-ins recorded.</div>
+    </div>
+
+    <div class="mgmt-subpanel hidden" id="mgmt-overtime">
+      <table id="overtimeTable">
+        <thead><tr><th>Employee</th><th>Date</th><th>Overtime</th></tr></thead>
+        <tbody id="overtimeBody"></tbody>
+      </table>
+      <div class="empty-note hidden" id="overtimeEmpty">No overtime recorded.</div>
+    </div>
+  </section>
+
+  </div>
+</div>
+
+<script>
+  // ---------------------------------------------------------------
+  // Session
+  // ---------------------------------------------------------------
+  let token = localStorage.getItem('ozone_token');
+  let currentUser = null;
+  let currentRecord = null;
+  let heartbeatTimer = null;
+  let teamRefreshTimer = null;
+
+  const el = id => document.getElementById(id);
+
+  function authHeaders(extra) {
+    return Object.assign({ Authorization: token }, extra || {});
+  }
+
+  async function api(path, opts) {
+    opts = opts || {};
+    opts.headers = authHeaders(opts.headers || {});
+    const res = await fetch(path, opts);
+    let data = null;
+    try { data = await res.json(); } catch (e) {}
+    if (res.status === 401) { doLogout(); throw new Error('Session expired'); }
+    if (!res.ok) throw new Error((data && data.error) || 'Request failed');
+    return data;
+  }
+
+  // ---------------------------------------------------------------
+  // Login / logout
+  // ---------------------------------------------------------------
+  el('loginBtn').addEventListener('click', async () => {
+    const email = el('loginEmail').value.trim();
+    const password = el('loginPassword').value;
+    el('loginErr').style.display = 'none';
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Login failed');
+      token = data.token;
+      currentUser = data.user;
+      localStorage.setItem('ozone_token', token);
+      showApp();
+    } catch (err) {
+      el('loginErr').textContent = err.message;
+      el('loginErr').style.display = 'block';
+    }
+  });
+
+  el('logoutBtn').addEventListener('click', doLogout);
+
+  async function doLogout() {
+    try { await api('/api/logout', { method: 'POST' }); } catch (e) {}
+    localStorage.removeItem('ozone_token');
+    token = null;
+    currentUser = null;
+    clearInterval(heartbeatTimer);
+    clearInterval(teamRefreshTimer);
+    el('appScreen').style.display = 'none';
+    el('loginScreen').style.display = 'flex';
+  }
+
+  // ---------------------------------------------------------------
+  // App shell
+  // ---------------------------------------------------------------
+  async function showApp() {
+    el('loginScreen').style.display = 'none';
+    el('appScreen').style.display = 'block';
+    el('whoName').textContent = currentUser.name;
+    el('whoRole').textContent = currentUser.role;
+
+    if (currentUser.role === 'manager' || currentUser.role === 'md') {
+      el('teamSection').classList.remove('hidden');
+      el('teamHeading').textContent = currentUser.role === 'md' ? 'Everyone\u2019s activity' : 'Your team\u2019s activity';
+      el('managementTabBtn').classList.remove('hidden');
+      loadTeam();
+      teamRefreshTimer = setInterval(loadTeam, 15000);
+    }
+
+    await loadToday();
+    loadLeaveBalance();
+    loadMyLeave();
+    heartbeatTimer = setInterval(heartbeat, 30000);
+  }
+
+  // ---------------------------------------------------------------
+  // Tab switching
+  // ---------------------------------------------------------------
+  document.querySelectorAll('#mainTabs .tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#mainTabs .tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + btn.dataset.tab));
+      if (btn.dataset.tab === 'leave') { loadLeaveBalance(); loadMyLeave(); }
+      if (btn.dataset.tab === 'management') { loadApprovals(); loadLateLogs(); loadOvertime(); }
+    });
+  });
+
+  document.querySelectorAll('.subtab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.subtab-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.mgmt-subpanel').forEach(p => p.classList.add('hidden'));
+      el('mgmt-' + btn.dataset.subtab).classList.remove('hidden');
+    });
+  });
+
+  async function heartbeat() {
+    if (!currentRecord) return;
+    if (['working', 'break', 'lunch'].includes(currentRecord.status)) {
+      try {
+        const res = await api('/api/attendance/ping', { method: 'POST' });
+        if (res.status === 'auto_checked_out' && currentRecord.status !== 'auto_checked_out') {
+          await loadToday();
+          el('idleBanner').style.display = 'block';
+        }
+      } catch (e) {}
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Check-in panel
+  // ---------------------------------------------------------------
+  const STATUS_LABEL = {
+    checked_out: 'Checked out',
+    working: 'Working',
+    break: 'On break',
+    lunch: 'On lunch',
+    auto_checked_out: 'Auto checked-out (inactive)'
+  };
+
+  function renderRecord(record) {
+    currentRecord = record;
+    el('statusDot').className = 'status-dot ' + record.status;
+    let text = STATUS_LABEL[record.status] || record.status;
+    if (record.checkIn) text += ' · in ' + record.checkIn;
+    if (record.checkOut && record.status !== 'working') text += ' · out ' + record.checkOut;
+    el('statusText').textContent = text;
+    el('workNote').value = record.workNote || '';
+
+    const s = record.status;
+    el('checkInBtn').disabled = s !== 'checked_out' && s !== 'auto_checked_out';
+    el('checkOutBtn').disabled = s === 'checked_out' || s === 'auto_checked_out';
+    el('breakBtn').disabled = s !== 'working';
+    el('lunchBtn').disabled = s !== 'working';
+    el('endBreakBtn').disabled = !(s === 'break' || s === 'lunch');
+    el('saveNoteBtn').disabled = s !== 'working';
+
+    if (s !== 'auto_checked_out') el('idleBanner').style.display = 'none';
+  }
+
+  function showStatusMsg(msg, ok) {
+    const box = el('statusMsg');
+    box.textContent = msg;
+    box.className = 'status-msg show ' + (ok ? 'ok' : 'err');
+  }
+
+  async function loadToday() {
+    try {
+      const record = await api('/api/attendance/today');
+      renderRecord(record);
+    } catch (e) {}
+  }
+
+  async function action(path, body) {
+    try {
+      const record = await api(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {})
+      });
+      renderRecord(record);
+      showStatusMsg('Updated.', true);
+      if (currentUser.role === 'manager' || currentUser.role === 'md') loadTeam();
+    } catch (err) {
+      showStatusMsg(err.message, false);
+    }
+  }
+
+  el('checkInBtn').addEventListener('click', () => action('/api/attendance/checkin', { workNote: el('workNote').value }));
+  el('checkOutBtn').addEventListener('click', () => action('/api/attendance/checkout'));
+  el('breakBtn').addEventListener('click', () => action('/api/attendance/break/start', { type: 'break' }));
+  el('lunchBtn').addEventListener('click', () => action('/api/attendance/break/start', { type: 'lunch' }));
+  el('endBreakBtn').addEventListener('click', () => action('/api/attendance/break/end'));
+  el('saveNoteBtn').addEventListener('click', () => action('/api/attendance/note', { workNote: el('workNote').value }));
+
+  // ---------------------------------------------------------------
+  // Team status (manager / MD)
+  // ---------------------------------------------------------------
+  async function loadTeam() {
+    try {
+      const team = await api('/api/team/status');
+      const working = team.filter(t => t.status === 'working').length;
+      const onBreak = team.filter(t => t.status === 'break' || t.status === 'lunch').length;
+      const off = team.filter(t => t.status === 'checked_out' || t.status === 'auto_checked_out').length;
+      el('statWorking').textContent = working;
+      el('statBreak').textContent = onBreak;
+      el('statOff').textContent = off;
+
+      const table = el('teamTable');
+      const empty = el('teamEmpty');
+      if (team.length === 0) {
+        table.classList.add('hidden'); empty.classList.remove('hidden');
+        return;
+      }
+      table.classList.remove('hidden'); empty.classList.add('hidden');
+
+      el('teamBody').innerHTML = team.map(t => {
+        let badgeClass = 'badge-off', badgeLabel = 'Checked out';
+        if (t.status === 'working') { badgeClass = 'badge-working'; badgeLabel = 'Working'; }
+        else if (t.status === 'break' || t.status === 'lunch') { badgeClass = 'badge-break'; badgeLabel = t.status === 'lunch' ? 'Lunch' : 'Break'; }
+        else if (t.status === 'auto_checked_out') { badgeClass = 'badge-auto'; badgeLabel = 'Auto checked-out'; }
+        return `
+          <tr>
+            <td class="name-cell">${t.name}</td>
+            <td class="name-cell">${t.department || '—'}</td>
+            <td><span class="badge ${badgeClass}">${badgeLabel}</span></td>
+            <td class="name-cell">${t.workNote || '—'}</td>
+            <td>${t.checkIn || '—'}</td>
+          </tr>
+        `;
+      }).join('');
+    } catch (e) {}
+  }
+
+  // ---------------------------------------------------------------
+  // Leave (everyone)
+  // ---------------------------------------------------------------
+  async function loadLeaveBalance() {
+    try {
+      const bal = await api('/api/leave/balance');
+      el('balSick').textContent = bal.sick;
+      el('balCasual').textContent = bal.casual;
+      el('balEarned').textContent = bal.earned;
+    } catch (e) {}
+  }
+
+  function leaveStatusBadge(status) {
+    const cls = status === 'approved' ? 'badge-approved' : status === 'rejected' ? 'badge-rejected' : 'badge-pending';
+    return `<span class="badge ${cls}">${status}</span>`;
+  }
+
+  async function loadMyLeave() {
+    try {
+      const requests = await api('/api/leave/my');
+      const table = el('myLeaveTable'), empty = el('myLeaveEmpty');
+      if (requests.length === 0) { table.classList.add('hidden'); empty.classList.remove('hidden'); return; }
+      table.classList.remove('hidden'); empty.classList.add('hidden');
+      el('myLeaveBody').innerHTML = requests.map(r => `
+        <tr>
+          <td class="name-cell">${r.type}</td>
+          <td>${r.startDate} \u2192 ${r.endDate}</td>
+          <td>${r.days}</td>
+          <td class="name-cell">${r.reason || '\u2014'}</td>
+          <td>${leaveStatusBadge(r.status)}</td>
+        </tr>
+      `).join('');
+    } catch (e) {}
+  }
+
+  el('submitLeaveBtn').addEventListener('click', async () => {
+    const type = el('leaveType').value;
+    const startDate = el('leaveStart').value;
+    const endDate = el('leaveEnd').value;
+    const reason = el('leaveReason').value;
+    const msgBox = el('leaveMsg');
+    if (!startDate || !endDate) {
+      msgBox.textContent = 'Please choose a start and end date.';
+      msgBox.className = 'status-msg show err';
+      return;
+    }
+    try {
+      await api('/api/leave/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, startDate, endDate, reason })
+      });
+      msgBox.textContent = 'Leave request submitted.';
+      msgBox.className = 'status-msg show ok';
+      el('leaveReason').value = '';
+      loadMyLeave();
+      loadLeaveBalance();
+    } catch (err) {
+      msgBox.textContent = err.message;
+      msgBox.className = 'status-msg show err';
+    }
+  });
+
+  // ---------------------------------------------------------------
+  // Management: approvals, late logs, overtime (manager/MD)
+  // ---------------------------------------------------------------
+  async function loadApprovals() {
+    try {
+      const requests = await api('/api/leave/team');
+      const table = el('approvalsTable'), empty = el('approvalsEmpty');
+      if (requests.length === 0) { table.classList.add('hidden'); empty.classList.remove('hidden'); return; }
+      table.classList.remove('hidden'); empty.classList.add('hidden');
+      el('approvalsBody').innerHTML = requests.map(r => `
+        <tr>
+          <td class="name-cell">${r.userName}</td>
+          <td class="name-cell">${r.type}</td>
+          <td>${r.startDate} \u2192 ${r.endDate}</td>
+          <td>${r.days}</td>
+          <td class="name-cell">${r.reason || '\u2014'}</td>
+          <td>${leaveStatusBadge(r.status)}</td>
+          <td class="row-actions">
+            ${r.status === 'pending'
+              ? `<button class="btn-primary" onclick="decideLeave('${r.id}','approve')">Approve</button>
+                 <button class="btn-out" onclick="decideLeave('${r.id}','reject')">Reject</button>`
+              : ''}
+          </td>
+        </tr>
+      `).join('');
+    } catch (e) {}
+  }
+
+  window.decideLeave = async function(id, decision) {
+    try {
+      await api(`/api/leave/${id}/${decision}`, { method: 'POST' });
+      loadApprovals();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  async function loadLateLogs() {
+    try {
+      const logs = await api('/api/reports/late');
+      const table = el('lateTable'), empty = el('lateEmpty');
+      if (logs.length === 0) { table.classList.add('hidden'); empty.classList.remove('hidden'); return; }
+      table.classList.remove('hidden'); empty.classList.add('hidden');
+      el('lateBody').innerHTML = logs.map(r => `
+        <tr>
+          <td class="name-cell">${r.userName}</td>
+          <td>${r.date}</td>
+          <td>${r.checkIn || '\u2014'}</td>
+          <td>09:30:00</td>
+        </tr>
+      `).join('');
+    } catch (e) {}
+  }
+
+  function formatMinutes(mins) {
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return `${h}h ${m}m`;
+  }
+
+  async function loadOvertime() {
+    try {
+      const logs = await api('/api/reports/overtime');
+      const table = el('overtimeTable'), empty = el('overtimeEmpty');
+      if (logs.length === 0) { table.classList.add('hidden'); empty.classList.remove('hidden'); return; }
+      table.classList.remove('hidden'); empty.classList.add('hidden');
+      el('overtimeBody').innerHTML = logs.map(r => `
+        <tr>
+          <td class="name-cell">${r.userName}</td>
+          <td>${r.date}</td>
+          <td>${formatMinutes(r.overtimeMinutes)}</td>
+        </tr>
+      `).join('');
+    } catch (e) {}
+  }
+
+  // ---------------------------------------------------------------
+  // Init
+  // ---------------------------------------------------------------
+  if (token) {
+    api('/api/me').then(user => { currentUser = user; showApp(); }).catch(() => {});
+  }
+</script>
+
+</body>
+</html>
